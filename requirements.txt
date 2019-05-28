@@ -1,0 +1,4 @@
+beautifulsoup4==4.7.1
+bs4==0.0.1
+argparse==1.4.0
+fonttools==3.39.0
