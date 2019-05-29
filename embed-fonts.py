@@ -53,37 +53,52 @@ def getFontAsString( fontfile, fontfamily ):
 parser = argparse.ArgumentParser(description="Embed fonts into SVG")
 
 parser.add_argument(
-    "--input",
-    type=str,
+    "input",
+    type=argparse.FileType('r'),
     help="The SVG file you want to embed your fonts into.",
-    required=True,
 )
 parser.add_argument(
-    "--output",
-    type=str,
+    "output",
+    type=argparse.FileType('w'),
     help="The SVG file to write.",
-    required=True,
+)
+parser.add_argument(
+    "--verbose", "-v",
+    action="store_true",
+    help="Show what's happening behind the curtains.",
 )
 
 args = parser.parse_args()
 infile = args.input
 outfile = args.output
+debug = args.verbose
 
-with open(infile) as fp:
-    dom = bs4.BeautifulSoup(fp, features="xml")
+if outfile.name == infile.name:
+    print("Error: input file and output file are identical.")
+    sys.exit(2)
 
-print("Building font list...")
+print("Reading document...")
+dom = bs4.BeautifulSoup(infile, features="xml")
+
+print("Building font list...", end='')
 fontlist = []
 for tag in dom.find_all('text'):
     for style in (tag["style"]).split(';'):
+#        if debug:
+#            if style[0:5] == "font-":
+#                print("[i] SVG style: %s" % style)
         if style[0:12] == "font-family:":
             fontname = style[12:]
             fontlist.append(fontname.replace("'", "").strip())
 
-fontset = set(fontlist)
-fontdict = {}
-print(fontset)
-print("Searching for fonts...")
+fontset = list(set(fontlist))
+print(" found %i unique fonts in the SVG." % len(fontset))
+
+if debug:
+    print(fontset)
+
+print("Searching for fonts...", end='')
+fontdb = []
 
 for directory in fontdirs:
     filelist = []
@@ -94,17 +109,54 @@ for directory in fontdirs:
                 filelist.append(os.path.join(root, fontfile))
 
     for fontfile in filelist:
-        if len(fontset) == 0:
-            continue
         tt = ttLib.TTFont(fontfile)
         fontname, fontfamily = shortName(tt)
-#        print("File %s contains %s" % (fontfile, fontname))
-        if fontname in fontset or fontfamily in fontset:
-            fontdict[fontfamily] = fontfile
-#            print("Using %s from %s" % (fontname, fontfile))
-            fontset.remove(fontfamily)
+#        if debug:
+#            print("[i] File %s contains '%s' (font-family: %s)" % (fontfile, fontname, fontfamily))
+        entry = {}
+        entry["file"] = fontfile
+        entry["name"] = fontname
+        entry["family"] = fontfamily
+        fontdb.append(entry)
+print(" found %i fonts on the system." % len(fontdb))
 
-print(fontdict)
+if debug:
+    print(fontdb)
+
+print("Matching fonts...", end='')
+fontdict = {}
+
+for font in fontdb:
+    fontname = font["name"]
+    fontfile = font["file"]
+    for current_font in fontset:
+        if current_font == fontname:
+            fontdict[current_font] = font["file"]
+#            print("[!] Using '%s' as '%s' from %s" % (fontname, current_font, fontfile))
+            fontset.remove(current_font)
+
+for font in fontdb:
+    fontname = font["family"]
+    fontfile = font["file"]
+    for current_font in fontset:
+        if current_font == fontname:
+            fontdict[current_font] = font["file"]
+#            print("[!] Using '%s' as '%s' from %s" % (fontname, current_font, fontfile))
+            fontset.remove(current_font)
+
+for font in fontdb:
+    fontname = font["family"]
+    fontfile = font["file"]
+    for current_font in fontset:
+        if current_font in fontname:
+            fontdict[current_font] = font["file"]
+#            print("[!] Using '%s' as '%s' from %s" % (fontname, current_font, fontfile))
+            fontset.remove(current_font)
+
+print(" matched %i fonts." % len(fontdict))
+
+if debug:
+    print(fontdict)
 
 print("Embedding font data...")
 fontdata = ""
@@ -115,6 +167,5 @@ styletag.string = bs4.element.CData(fontdata)
 dom.svg.insert(1, styletag)
 
 print("Writing SVG...")
-output_svg = open(outfile, "w")
-output_svg.write(str(dom.prettify(formatter="none")))
-output_svg.close()
+outfile.write(str(dom.prettify(formatter="none")))
+outfile.close()
