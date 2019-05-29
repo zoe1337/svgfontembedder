@@ -89,7 +89,8 @@ for directory in fontdirs:
     filelist = []
     for root, directories, files in os.walk(directory):
         for fontfile in files:
-            if '.otf' in fontfile or '.ttf' in fontfile:
+            ext = fontfile[-3:].lower()
+            if ext == 'otf' or ext == 'ttf':
                 filelist.append(os.path.join(root, fontfile))
 
     for fontfile in filelist:
@@ -104,8 +105,6 @@ for directory in fontdirs:
             fontset.remove(fontfamily)
 
 print(fontdict)
-
-#print("Converting fonts to WOFF")
 
 print("Embedding font data...")
 fontdata = ""
