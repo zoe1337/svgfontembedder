@@ -9,7 +9,8 @@ At the moment it only supports Linux, since I don't use other platforms and can'
 - fonttools
 
 ## How to use
-From a terminal run `./embed-fonts.py --input <INPUT SVG FILE> --output <OUTPUT SVG FILE>`
+From a terminal run  
+`./embed-fonts.py [-h] [--verbose] <input SVG> <output SVG>`
 
 ## How does it work
 The program parses the input SVG file, makes a list of the fonts used, and then scans local font directories, trying to find the source of the used font face.
